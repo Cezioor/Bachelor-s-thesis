@@ -5,10 +5,10 @@
 Projekt realizowany w ramach pracy dyplomowej dotyczy analizy
 statystycznej wpływu kontuzji więzadła krzyżowego przedniego (ACL) na
 powrót sportowców do pełnej sprawności.\
-W analizie wykorzystano dane z kilku dyscyplin sportowych: - 🏀 NBA
-(koszykówka mężczyzn)\
-- 🏀 WNBA (koszykówka kobiet)\
-- 🏈 NFL (futbol amerykański)\
+W analizie wykorzystano dane z kilku dyscyplin sportowych: 
+- 🏀 NBA
+- 🏀 WNBA 
+- 🏈 NFL 
 - ⚽ Piłka nożna
 
 Aplikacja umożliwia: - porównywanie statystyk zawodników **przed i po
@@ -80,3 +80,4 @@ rehabilitacją urazów.
 ------------------------------------------------------------------------
 
 ✍️ Autor: *Cezary Muszalski*
+
