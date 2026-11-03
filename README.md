@@ -1,83 +1,40 @@
-# Analiza wpływu urazów ACL na powrót do sportu
+# How ACL injuries affect return to sport
 
-## 📌 Opis projektu
+**🇬🇧 English** · [🇵🇱 Polski](README.pl.md)
 
-Projekt realizowany w ramach pracy dyplomowej dotyczy analizy
-statystycznej wpływu kontuzji więzadła krzyżowego przedniego (ACL) na
-powrót sportowców do pełnej sprawności.\
-W analizie wykorzystano dane z kilku dyscyplin sportowych: 
-- 🏀 NBA
-- 🏀 WNBA 
-- 🏈 NFL 
-- ⚽ Piłka nożna
+**▶ Live app: [acl-injury-analysis.streamlit.app](https://acl-injury-analysis.streamlit.app)** · available in English and Polish ([wersja polska](https://acl-injury-analysis.streamlit.app/?lang=pl))
 
-Aplikacja umożliwia: - porównywanie statystyk zawodników **przed i po
-kontuzji**, - analizę głównych komponentów (PCA) i klasteryzację
-zawodników, - wizualizację zmian w różnych kategoriach statystyk, -
-ocenę jakości powrotu do gry po urazie.
+An interactive data analysis of how an anterior cruciate ligament (ACL) tear changes athletes' performance.
+It compares player statistics before and after the injury across the **NBA, WNBA, NFL and men's football (soccer)**.
+Built as my bachelor's thesis project in Bioinformatics at the University of Gdańsk.
 
-------------------------------------------------------------------------
+## What you can do in the app
 
-## ⚙️ Technologie
+- **Compare players** before and after the injury: a table of percentage changes and grouped bar charts for any chosen statistics
+- **Explore changes across many statistics at once** with scatter plots, radar charts and a heatmap
+- **Group players by how they returned to form**: PCA on the standardised changes, then k-means clustering, with an automatic interpretation of each cluster
+- **See which statistics suffer most** after an ACL injury, ranked by mean change
+- **Compare men and women** (NBA vs WNBA)
 
--   Python 3.x\
--   Streamlit (interfejs użytkownika)\
--   Pandas, NumPy (analiza danych)\
--   Scikit-learn (PCA, klasteryzacja)\
--   Matplotlib / Seaborn (wizualizacje)\
--   OpenPyXL (obsługa plików Excel)
+## Methods
 
-------------------------------------------------------------------------
+- Each player's statistics are summarised for the seasons before and after the injury; the app computes the percentage change for every statistic (percentage-point change for the share of games started)
+- Multivariate analysis: `StandardScaler` → `PCA(n_components=2)` → `KMeans`, with the explained variance shown on the axes
+- The theory and full discussion are in [`Praca_Licencjacka_teoria.pdf`](Praca_Licencjacka_teoria.pdf) (in Polish)
 
-## 🚀 Uruchamianie projektu
+## Data
 
-1.  Sklonuj repozytorium:
+All data is in [`Excel-licencjat.xlsx`](Excel-licencjat.xlsx), one sheet per league (and one per NFL statistics category: passing, rushing, receiving, defense, scoring).
 
-    ``` bash
-    git clone https://github.com/twoj-login/twoje-repozytorium.git
-    cd twoje-repozytorium
-    ```
+## Run locally
 
-2.  Zainstaluj wymagane biblioteki:
+```bash
+git clone https://github.com/Cezioor/Bachelor-s-thesis.git
+cd Bachelor-s-thesis
+pip install -r requirements.txt
+streamlit run app.py
+```
 
-    ``` bash
-    pip install -r requirements.txt
-    ```
+## Stack
 
-3.  Uruchom aplikację:
-
-    ``` bash
-    streamlit run app.py
-    ```
-
-------------------------------------------------------------------------
-
-## 📊 Dane wejściowe
-
-Projekt wykorzystuje pliki Excela zawierające statystyki zawodników.\
-Przykładowy plik (`Excel-licencjat.xlsx`) zawiera kilka arkuszy
-odpowiadających różnym dyscyplinom.\
-Każdy arkusz można wczytać osobno i analizować w aplikacji.
-
-------------------------------------------------------------------------
-
-## 📈 Przykładowe wyniki
-
-Aplikacja generuje: - **heatmapy** zmian statystyk zawodników,\
-- **wykresy PCA** pokazujące profile powrotu do gry,\
-- **tabele klasteryzacji** z automatyczną interpretacją wyników.
-
-------------------------------------------------------------------------
-
-## 📌 Cel projektu
-
-Celem projektu jest stworzenie narzędzia, które pozwoli na: - lepsze
-zrozumienie wpływu kontuzji ACL na sportowców,\
-- porównanie dynamiki powrotu do gry w różnych dyscyplinach,\
-- stworzenie podstaw do dalszych badań naukowych nad prewencją i
-rehabilitacją urazów.
-
-------------------------------------------------------------------------
-
-✍️ Autor: *Cezary Muszalski*
-
+Python · Streamlit · pandas · NumPy · scikit-learn (PCA, k-means) · Plotly · Matplotlib · Seaborn

@@ -1,151 +1,359 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 import seaborn as sns
+import streamlit as st
+from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import KMeans
 
-# --------- POLA STATYSTYK ---------
+st.set_page_config(page_title="ACL Injury Analysis", page_icon="🦵", layout="wide")
+
+# ====================================================================
+# TRANSLATIONS
+# ====================================================================
+TEXTS = {
+    "pl": {
+        "app_title": "Wpływ kontuzji ACL na powrót do sportu",
+        "app_intro": (
+            "Interaktywna analiza statystyk zawodników NBA, WNBA, NFL i piłki nożnej "
+            "przed i po zerwaniu więzadła krzyżowego przedniego (ACL). "
+            "Projekt z pracy licencjackiej (bioinformatyka, Uniwersytet Gdański)."
+        ),
+        "choose_league": "Wybierz ligę do szczegółowej analizy:",
+        "choose_nfl": "Wybierz rodzaj statystyk NFL:",
+        "league_title": "Analiza wybranej ligi: {league}",
+        "tab_compare": "🔢 Porównanie zawodników",
+        "tab_multi": "📊 Analiza wielowymiarowa",
+        "compare_header": "Porównanie wybranych zawodników przed i po kontuzji",
+        "choose_players": "Wybierz zawodników do porównania (domyślnie 2):",
+        "all_players": "Zaznacz wszystkich zawodników",
+        "choose_stats": "Wybierz statystyki do porównania:",
+        "all_stats": "Zaznacz wszystkie statystyki",
+        "player": "Zawodnik",
+        "before": "przed",
+        "after": "po",
+        "pct_change": "% delta",
+        "before_cap": "Przed",
+        "after_cap": "Po",
+        "value": "Wartość",
+        "statistic": "Statystyka",
+        "multi_header": "Analiza danych wielowymiarowych – wybrana league",
+        "scatter_title": "Wykres punktowy (dwuwymiarowy):",
+        "scatter_x": "Wybierz statystykę (oś X):",
+        "scatter_y": "Wybierz statystykę (oś Y):",
+        "scatter_players": "Wybierz zawodników do wykresu punktowego:",
+        "scatter_all": "Zaznacz wszystkich zawodników do wykresu punktowego",
+        "radar_title": "Wykres radarowy (wielowymiarowy):",
+        "radar_stats": "Statystyki do wykresu radarowego:",
+        "radar_all_stats": "Zaznacz wszystkie statystyki do wykresu radarowego",
+        "radar_players": "Zawodnicy do wykresu radarowego:",
+        "radar_all": "Zaznacz wszystkich zawodników do wykresu radarowego",
+        "heatmap_title": "Heatmapa zmian procentowych:",
+        "heatmap_stats": "Statystyki do heatmapy:",
+        "heatmap_all_stats": "Zaznacz wszystkie statystyki do heatmapy",
+        "heatmap_players": "Zawodnicy do heatmapy:",
+        "heatmap_all": "Zaznacz wszystkich zawodników do heatmapy",
+        "pca_title": "Analiza PCA + klasteryzacja – profile powrotu do formy",
+        "pca_players": "Wybierz zawodników do PCA:",
+        "pca_all": "Zaznacz wszystkich zawodników do PCA",
+        "pca_stats": "Statystyki do PCA:",
+        "pca_all_stats": "Zaznacz wszystkie statystyki do PCA",
+        "n_clusters": "Wybierz liczbę klastrów",
+        "cluster": "Klaster",
+        "pc": "Główna składowa {n} ({var:.1f}% wariancji)",
+        "pca_plot_title": "PCA + k-means: grupy zawodników wg profilu zmian",
+        "cluster_means": "**Średnie zmiany statystyk w każdym klastrze:**",
+        "cluster_players": "**Zawodnicy w każdym klastrze:**",
+        "cluster_interp": "**Automatyczna interpretacja klastrów:**",
+        "cluster_worst": "Największy spadek (najgorszy powrót do formy)",
+        "cluster_best": "Najmniejszy spadek / największy wzrost (najlepszy powrót do formy)",
+        "cluster_mid": "Średni powrót do formy",
+        "cluster_sum": "suma średnich zmian",
+        "pca_too_few": "Za mało danych do PCA – wybierz więcej zawodników lub statystyk.",
+        "quality_title": "Analiza jakościowa: które statystyki najbardziej cierpią po kontuzji ACL?",
+        "mean_change_all": "**Średnia procentowa delta każdej statystyki (wszyscy zawodnicy):**",
+        "mean_change_col": "Średnia delta (%)",
+        "most_decreased": "Statystyka, która najbardziej ucierpiała:",
+        "most_increased": "Statystyka, która najmniej ucierpiała lub nawet wzrosła:",
+        "mean_change_short": "średnia delta",
+        "ranking": "**Ranking statystyk wg średniego spadku/wzrostu:**",
+        "trend_down": "spadek",
+        "trend_up": "wzrost",
+        "trend_none": "brak zmiany",
+        "most_improved": "**Najwięcej zawodników poprawiło się w statystyce:** {stat} ({n} zawodników)",
+        "mean_change_plot": "Średnia procentowa delta statystyk po kontuzji ACL",
+        "compare_sexes": "Porównaj statystyki mężczyzn i kobiet (NBA vs WNBA)",
+        "sexes_header": "Porównanie średnich zmian statystyk po ACL – NBA vs WNBA",
+        "sexes_ylabel": "Średnia % delta po ACL",
+        "sexes_title": "Średnia delta statystyk po ACL – NBA vs WNBA",
+        "sexes_table": "**Tabela: średnia procentowa delta statystyk po ACL:**",
+        "leagues": {
+            "NBA": "NBA",
+            "WNBA": "WNBA",
+            "NFL": "NFL",
+            "Soccer-Man": "Piłka nożna (mężczyźni)",
+            "Soccer-Woman": "Piłka nożna (kobiety)",
+        },
+    },
+    "en": {
+        "app_title": "How ACL injuries affect return to sport",
+        "app_intro": (
+            "Interactive analysis of NBA, WNBA, NFL and football (soccer) player statistics "
+            "before and after an anterior cruciate ligament (ACL) tear. "
+            "Bachelor's thesis project (Bioinformatics, University of Gdańsk)."
+        ),
+        "choose_league": "Choose a league to analyse:",
+        "choose_nfl": "Choose the NFL statistics category:",
+        "league_title": "League analysis: {league}",
+        "tab_compare": "🔢 Player comparison",
+        "tab_multi": "📊 Multivariate analysis",
+        "compare_header": "Selected players before and after the injury",
+        "choose_players": "Choose players to compare (2 by default):",
+        "all_players": "Select all players",
+        "choose_stats": "Choose statistics to compare:",
+        "all_stats": "Select all statistics",
+        "player": "Player",
+        "before": "before",
+        "after": "after",
+        "pct_change": "% change",
+        "before_cap": "Before",
+        "after_cap": "After",
+        "value": "Value",
+        "statistic": "Statistic",
+        "multi_header": "Multivariate analysis – selected league",
+        "scatter_title": "Scatter plot (two dimensions):",
+        "scatter_x": "Statistic on the X axis:",
+        "scatter_y": "Statistic on the Y axis:",
+        "scatter_players": "Players in the scatter plot:",
+        "scatter_all": "Select all players for the scatter plot",
+        "radar_title": "Radar chart (multidimensional):",
+        "radar_stats": "Statistics for the radar chart:",
+        "radar_all_stats": "Select all statistics for the radar chart",
+        "radar_players": "Players in the radar chart:",
+        "radar_all": "Select all players for the radar chart",
+        "heatmap_title": "Heatmap of percentage changes:",
+        "heatmap_stats": "Statistics for the heatmap:",
+        "heatmap_all_stats": "Select all statistics for the heatmap",
+        "heatmap_players": "Players in the heatmap:",
+        "heatmap_all": "Select all players for the heatmap",
+        "pca_title": "PCA + clustering – return-to-form profiles",
+        "pca_players": "Players for PCA:",
+        "pca_all": "Select all players for PCA",
+        "pca_stats": "Statistics for PCA:",
+        "pca_all_stats": "Select all statistics for PCA",
+        "n_clusters": "Number of clusters",
+        "cluster": "Cluster",
+        "pc": "Principal component {n} ({var:.1f}% of variance)",
+        "pca_plot_title": "PCA + k-means: player groups by change profile",
+        "cluster_means": "**Mean change of each statistic per cluster:**",
+        "cluster_players": "**Players in each cluster:**",
+        "cluster_interp": "**Automatic cluster interpretation:**",
+        "cluster_worst": "Largest decline (worst return to form)",
+        "cluster_best": "Smallest decline / largest improvement (best return to form)",
+        "cluster_mid": "Average return to form",
+        "cluster_sum": "sum of mean changes",
+        "pca_too_few": "Not enough data for PCA – choose more players or statistics.",
+        "quality_title": "Which statistics suffer most after an ACL injury?",
+        "mean_change_all": "**Mean percentage change of each statistic (all players):**",
+        "mean_change_col": "Mean change (%)",
+        "most_decreased": "Statistic that suffered most:",
+        "most_increased": "Statistic that suffered least or even improved:",
+        "mean_change_short": "mean change",
+        "ranking": "**Statistics ranked by mean decline/improvement:**",
+        "trend_down": "decline",
+        "trend_up": "improvement",
+        "trend_none": "no change",
+        "most_improved": "**Most players improved in:** {stat} ({n} players)",
+        "mean_change_plot": "Mean percentage change of statistics after an ACL injury",
+        "compare_sexes": "Compare men and women (NBA vs WNBA)",
+        "sexes_header": "Mean change after ACL injury – NBA vs WNBA",
+        "sexes_ylabel": "Mean % change after ACL",
+        "sexes_title": "Mean change of statistics after ACL – NBA vs WNBA",
+        "sexes_table": "**Table: mean percentage change after ACL:**",
+        "leagues": {
+            "NBA": "NBA",
+            "WNBA": "WNBA",
+            "NFL": "NFL",
+            "Soccer-Man": "Football (men)",
+            "Soccer-Woman": "Football (women)",
+        },
+    },
+}
+
+# --------- LANGUAGE ---------
+# English by default; a link with ?lang=pl opens the Polish version.
+LANGUAGES = {"en": "🇬🇧 English", "pl": "🇵🇱 Polski"}
+
+
+def reset_widgets():
+    """Clear widget selections after a language change, because statistic names change.
+    The chosen league and NFL category are carried over to the new language."""
+    new_lang = st.session_state["lang"]
+    keep = {
+        name: value
+        for name in ("league", "nfl_sheet")
+        for key, value in st.session_state.items()
+        if key.startswith(f"{name}_")
+    }
+    for key in list(st.session_state.keys()):
+        if key != "lang":
+            del st.session_state[key]
+    for name, value in keep.items():
+        st.session_state[f"{name}_{new_lang}"] = value
+    st.query_params["lang"] = new_lang
+
+
+if "lang" not in st.session_state:
+    url_lang = st.query_params.get("lang", "en")
+    st.session_state["lang"] = url_lang if url_lang in LANGUAGES else "en"
+
+_, lang_col = st.columns([5, 1])
+with lang_col:
+    lang = st.radio(
+        "Language / Język",
+        options=list(LANGUAGES),
+        format_func=LANGUAGES.get,
+        key="lang",
+        horizontal=True,
+        label_visibility="collapsed",
+        on_change=reset_widgets,
+    )
+
+T = TEXTS[lang]
+
+
+def t(key, **kwargs):
+    return T[key].format(**kwargs) if kwargs else T[key]
+
+
+def k(name):
+    """Separate widget keys per language, so that after switching languages
+    Streamlit does not show stale (untranslated) selections."""
+    return f"{name}_{lang}"
+
+
+# --------- STATISTIC FIELDS: (Excel column code, PL label, EN label) ---------
 fields_nba = [
-    ("games played", "Mecze rozegrane"),
-    ("GS_percent", "Udział meczów w pierwszej piątce (%)"),
-    ("Minutes played per match", "Minuty/mecz"),
-    ("PTS", "Punkty"),
-    ("AST", "Asysty"),
-    ("REB", "Zbiórki"),
-    ("OR", "Zbiórki atak"),
-    ("DR", "Zbiórki obrona"),
-    ("BLK", "Bloki"),
-    ("STL", "Przechwyty"),
-    ("FG_made", "Rzuty z gry (trafione)"),
-    ("FG_att", "Rzuty z gry (próby)"),
-    ("FG%", "Skuteczność z gry (%)"),
-    ("3PT_made", "Rzuty za 3 (trafione)"),
-    ("3PT_att", "Rzuty za 3 (próby)"),
-    ("3PT%", "Skuteczność za 3 (%)"),
-    ("FT_made", "Rzuty wolne (trafione)"),
-    ("FT_att", "Rzuty wolne (próby)"),
-    ("FT%", "Skuteczność rzutów wolnych (%)"),
-    ("TO", "Straty"),
-    ("PF", "Faule"),
+    ("games played", "Mecze rozegrane", "Games played"),
+    ("GS_percent", "Udział meczów w pierwszej piątce (%)", "Games started (%)"),
+    ("Minutes played per match", "Minuty/mecz", "Minutes per game"),
+    ("PTS", "Punkty", "Points"),
+    ("AST", "Asysty", "Assists"),
+    ("REB", "Zbiórki", "Rebounds"),
+    ("OR", "Zbiórki atak", "Offensive rebounds"),
+    ("DR", "Zbiórki obrona", "Defensive rebounds"),
+    ("BLK", "Bloki", "Blocks"),
+    ("STL", "Przechwyty", "Steals"),
+    ("FG_made", "Rzuty z gry (trafione)", "Field goals made"),
+    ("FG_att", "Rzuty z gry (próby)", "Field goals attempted"),
+    ("FG%", "Skuteczność z gry (%)", "Field goal %"),
+    ("3PT_made", "Rzuty za 3 (trafione)", "3-pointers made"),
+    ("3PT_att", "Rzuty za 3 (próby)", "3-pointers attempted"),
+    ("3PT%", "Skuteczność za 3 (%)", "3-point %"),
+    ("FT_made", "Rzuty wolne (trafione)", "Free throws made"),
+    ("FT_att", "Rzuty wolne (próby)", "Free throws attempted"),
+    ("FT%", "Skuteczność rzutów wolnych (%)", "Free throw %"),
+    ("TO", "Straty", "Turnovers"),
+    ("PF", "Faule", "Personal fouls"),
 ]
 fields_nfl_passing = [
-    ("GP", "Mecze rozegrane"),
-    ("CMP", "Celne podania"),
-    ("ATT", "Próby podań"),
-    ("CMP%", "Celność podań (%)"),
-    ("YDS", "Yardy podań"),
-    ("AVG", "Yardy na próbę"),
-    ("TD", "Przyłożenia podaniem"),
-    ("INT", "Przechwyty podań"),
-    ("LNG", "Najdłuższe podanie"),
-    ("SACK", "Sacks"),
-    ("RTG", "Ocena podającego"),
-    ("QBR", "QBR"),
+    ("GP", "Mecze rozegrane", "Games played"),
+    ("CMP", "Celne podania", "Completions"),
+    ("ATT", "Próby podań", "Pass attempts"),
+    ("CMP%", "Celność podań (%)", "Completion %"),
+    ("YDS", "Yardy podań", "Passing yards"),
+    ("AVG", "Yardy na próbę", "Yards per attempt"),
+    ("TD", "Przyłożenia podaniem", "Passing touchdowns"),
+    ("INT", "Przechwyty podań", "Interceptions thrown"),
+    ("LNG", "Najdłuższe podanie", "Longest pass"),
+    ("SACK", "Sacks", "Sacks"),
+    ("RTG", "Ocena podającego", "Passer rating"),
+    ("QBR", "QBR", "QBR"),
 ]
-
 fields_nfl_rushing = [
-    ("GP", "Mecze rozegrane"),
-    ("CAR", "Próby biegu"),
-    ("YDS", "Yardy biegu"),
-    ("AVG", "Średnia jardów/bieg"),
-    ("TD", "Przyłożenia biegiem"),
-    ("LNG", "Najdłuższy bieg"),
-    ("FD", "Pierwsze próby biegiem"),
-    ("FUM", "Fumble"),
-    ("LST", "Fumble stracone"),
+    ("GP", "Mecze rozegrane", "Games played"),
+    ("CAR", "Próby biegu", "Rushing attempts"),
+    ("YDS", "Yardy biegu", "Rushing yards"),
+    ("AVG", "Średnia jardów/bieg", "Yards per carry"),
+    ("TD", "Przyłożenia biegiem", "Rushing touchdowns"),
+    ("LNG", "Najdłuższy bieg", "Longest run"),
+    ("FD", "Pierwsze próby biegiem", "Rushing first downs"),
+    ("FUM", "Fumble", "Fumbles"),
+    ("LST", "Fumble stracone", "Fumbles lost"),
 ]
-
 fields_nfl_receiving = [
-    ("GP", "Mecze rozegrane"),
-    ("REC", "Złapane podania"),
-    ("TGTS", "Celem podania"),
-    ("YDS", "Yardy po złapaniu"),
-    ("AVG", "Średnia jardów/odbiory"),
-    ("TD", "Przyłożenia"),
-    ("LNG", "Najdłuższe złapane"),
-    ("FD", "Pierwsze próby"),
-    ("FUM", "Fumble"),
-    ("LST", "Fumble stracone"),
+    ("GP", "Mecze rozegrane", "Games played"),
+    ("REC", "Złapane podania", "Receptions"),
+    ("TGTS", "Celem podania", "Targets"),
+    ("YDS", "Yardy po złapaniu", "Receiving yards"),
+    ("AVG", "Średnia jardów/odbiory", "Yards per reception"),
+    ("TD", "Przyłożenia", "Touchdowns"),
+    ("LNG", "Najdłuższe złapane", "Longest reception"),
+    ("FD", "Pierwsze próby", "First downs"),
+    ("FUM", "Fumble", "Fumbles"),
+    ("LST", "Fumble stracone", "Fumbles lost"),
 ]
-
 fields_nfl_defense = [
-    ("GP", "Mecze rozegrane"),
-    ("TOT", "Łącznie tackli"),
-    ("SOLO", "Solo tackli"),
-    ("AST", "Asysty w tacklach"),
-    ("SACK", "Sacki"),
-    ("FF", "Forced fumble"),
-    ("FR", "Odzyskane fumble"),
-    ("YDS", "Yardy przechwytów/fumble"),
-    ("INT", "Interceptions"),
-    ("AVG", "Średnia jardów na interception"),
-    ("TD", "Przyłożenia po obronie"),
-    ("LNG", "Najdłuższa akcja"),
-    ("PD", "Passes defended"),
-    ("STF", "Stuffs"),
-    ("STFYDS", "Stuff yards"),
-    ("KB", "Zablokowane kopnięcia"),
+    ("GP", "Mecze rozegrane", "Games played"),
+    ("TOT", "Łącznie tackli", "Total tackles"),
+    ("SOLO", "Solo tackli", "Solo tackles"),
+    ("AST", "Asysty w tacklach", "Assisted tackles"),
+    ("SACK", "Sacki", "Sacks"),
+    ("FF", "Forced fumble", "Forced fumbles"),
+    ("FR", "Odzyskane fumble", "Fumble recoveries"),
+    ("YDS", "Yardy przechwytów/fumble", "Return yards (INT/fumble)"),
+    ("INT", "Interceptions", "Interceptions"),
+    ("AVG", "Średnia jardów na interception", "Yards per interception"),
+    ("TD", "Przyłożenia po obronie", "Defensive touchdowns"),
+    ("LNG", "Najdłuższa akcja", "Longest play"),
+    ("PD", "Passes defended", "Passes defended"),
+    ("STF", "Stuffs", "Stuffs"),
+    ("STFYDS", "Stuff yards", "Stuff yards"),
+    ("KB", "Zablokowane kopnięcia", "Blocked kicks"),
 ]
-
 fields_nfl_scoring = [
-    ("GP", "Mecze rozegrane"),
-    ("PASS", "TD po podaniu"),
-    ("RUSH", "TD po biegu"),
-    ("REC", "TD po odbiorze"),
-    ("RET", "Return TD"),
-    ("TD", "Wszystkie touchdowny"),
-    ("2PT", "Dwupunktowe"),
-    ("PAT", "Extra point kick"),
-    ("FG", "Field goals"),
-    ("PTS", "Punkty"),
+    ("GP", "Mecze rozegrane", "Games played"),
+    ("PASS", "TD po podaniu", "Passing TD"),
+    ("RUSH", "TD po biegu", "Rushing TD"),
+    ("REC", "TD po odbiorze", "Receiving TD"),
+    ("RET", "Return TD", "Return TD"),
+    ("TD", "Wszystkie touchdowny", "Total touchdowns"),
+    ("2PT", "Dwupunktowe", "Two-point conversions"),
+    ("PAT", "Extra point kick", "Extra points"),
+    ("FG", "Field goals", "Field goals"),
+    ("PTS", "Punkty", "Points"),
 ]
-
 fields_soccer = [
-    ("Matches played", "Mecze rozegrane"),
-    ("Matches started", "Mecze w pierwszym składzie"),
-    ("PPG", "Punkty na mecz"),
-    ("Goals per match", "Gole na mecz"),
-    ("Assists per match", "Asysty na mecz"),
-    ("Own goals", "Samobóje"),
-    ("Substitutions in", "Wejścia z ławki"),
-    ("Substitution out", "Zejścia z boiska"),
-    ("Yellow card per match", "Żółte kartki na mecz"),
-    ("Second yellow card per match", "Drugie żółte na mecz"),
-    ("Red cards per match", "Czerwone kartki na mecz"),
-    ("Penalty goals", "Gole z karnych"),
-    ("Minutes per goal", "Co ile minut gol"),
-    ("Minutes played per match summary", "Minuty/mecz"),
+    ("Matches played", "Mecze rozegrane", "Matches played"),
+    ("Matches started", "Mecze w pierwszym składzie", "Matches started"),
+    ("PPG", "Punkty na mecz", "Points per game"),
+    ("Goals per match", "Gole na mecz", "Goals per match"),
+    ("Assists per match", "Asysty na mecz", "Assists per match"),
+    ("Own goals", "Samobóje", "Own goals"),
+    ("Substitutions in", "Wejścia z ławki", "Substituted in"),
+    ("Substitution out", "Zejścia z boiska", "Substituted out"),
+    ("Yellow card per match", "Żółte kartki na mecz", "Yellow cards per match"),
+    ("Second yellow card per match", "Drugie żółte na mecz", "Second yellows per match"),
+    ("Red cards per match", "Czerwone kartki na mecz", "Red cards per match"),
+    ("Penalty goals", "Gole z karnych", "Penalty goals"),
+    ("Minutes per goal", "Co ile minut gol", "Minutes per goal"),
+    ("Minutes played per match summary", "Minuty/mecz", "Minutes per match"),
 ]
 
+# Statistics measured as a percentage-point difference instead of a percentage change
+GS_CODES = ["GS_percent", "GS%", "GS_pct"]
 
-# --------- MAPOWANIE NA KOLUMNY EXCEL ---------
+
+def localize(raw_fields):
+    """(code, PL, EN) -> (code, label in the selected language)"""
+    return [(code, pl if lang == "pl" else en) for code, pl, en in raw_fields]
+
+
+# --------- MAPPING TO EXCEL COLUMNS ---------
 def get_excel_col(field_code):
-    # Mapowanie dla skuteczności
-    if field_code == "FG%":
-        if "Field goal percentage" in df.columns:
-            return "Field goal percentage"
-        elif "Skuteczność z gry (%)" in df.columns:
-            return "Skuteczność z gry (%)"
-        elif "FG%" in df.columns:
-            return "FG%"
-    if field_code == "3PT%":
-        if "Three-point field goal percentage" in df.columns:
-            return "Three-point field goal percentage"
-        elif "Skuteczność za 3 (%)" in df.columns:
-            return "Skuteczność za 3 (%)"
-        elif "3PT%" in df.columns:
-            return "3PT%"
-    if field_code == "FT%":
-        if "Free throw percentage" in df.columns:
-            return "Free throw percentage"
-        elif "Skuteczność rzutów wolnych (%)" in df.columns:
-            return "Skuteczność rzutów wolnych (%)"
-        elif "FT%" in df.columns:
-            return "FT%"
+    # Made/attempted values are stored together as "made-attempted" in one column
     if field_code.startswith("FG_"):
         return "Field goals made-attempted per game"
     if field_code.startswith("3PT_"):
@@ -154,53 +362,35 @@ def get_excel_col(field_code):
         return "Free throws made-attempted per game"
     return field_code
 
-# --------- ROZBIJANIE WARTOŚCI (trafione-próby) ---------
+
+# --------- SPLITTING "made-attempted" VALUES ---------
 def split_value(val):
     if pd.isnull(val):
         return (np.nan, np.nan)
     s = str(val).replace(",", ".")
-    if '-' in s:
+    if "-" in s:
         try:
-            a, b = [x.strip() for x in s.split('-')]
-            return (round(float(a),2), round(float(b),2))
-        except:
+            a, b = [x.strip() for x in s.split("-")]
+            return (round(float(a), 2), round(float(b), 2))
+        except ValueError:
             return (np.nan, np.nan)
     try:
-        return (round(float(s),2), np.nan)
-    except:
+        return (round(float(s), 2), np.nan)
+    except ValueError:
         return (np.nan, np.nan)
-    
-# --------- Dolicza 0 do analizy -----------
-    
-def procentowa_zmiana(before, after, max_display=200):
-    try:
-        before = float(str(before).replace(",", "."))
-        after = float(str(after).replace(",", "."))
-        if before == 0 and after == 0:
-            return 0.0
-        elif before == 0 and after > 0:
-            return f"> {max_display}%"  # albo np.nan, albo "nowy udział"
-        elif before == 0 and after < 0:
-            return np.nan
-        else:
-            raw = ((after - before) / before) * 100
-            if abs(raw) > max_display:
-                return f"> {max_display}%"
-            return round(raw, 1)
-    except Exception:
-        return np.nan
 
-# --------- POBIERANIE STATYSTYKI DLA RÓŻNYCH POL ---------
+
+# --------- READING A STATISTIC FROM A ROW ---------
 def get_stat_value(row, field_code):
-    # Obsługa specjalna dla GS% – udział startów w pierwszej piątce
-    if field_code in ["GS_percent", "GS%", "GS_pct"]:
+    # Special case for GS% – share of games started
+    if field_code in GS_CODES:
         games_played = row["games played"] if "games played" in row else np.nan
         gs = row["GS"] if "GS" in row else np.nan
         if not pd.isnull(gs) and not pd.isnull(games_played) and games_played >= 1:
             return round(100 * gs / games_played, 2)
         else:
             return np.nan
-        
+
     col = get_excel_col(field_code)
     val = row[col] if col in row else np.nan
     if "_made" in field_code:
@@ -210,454 +400,362 @@ def get_stat_value(row, field_code):
     else:
         return val if not pd.isnull(val) else np.nan
 
-# --------- WCZYTANIE DANYCH ---------
+
+def change(code, before_val, after_val):
+    """Change of a statistic: percentage points for GS%, percentage change for everything else."""
+    if code in GS_CODES:
+        if pd.isnull(after_val) or pd.isnull(before_val):
+            return np.nan
+        return after_val - before_val
+    if before_val and not pd.isnull(before_val):
+        return ((after_val - before_val) / before_val) * 100
+    return np.nan
+
+
+# --------- LOADING DATA ---------
 @st.cache_data
 def load_data():
-    df_nba = pd.read_excel("Excel-licencjat.xlsx", sheet_name="Basketball-man")
-    df_wnba = pd.read_excel("Excel-licencjat.xlsx", sheet_name="Basketball-woman")
+    path = "Excel-licencjat.xlsx"
+    df_nba = pd.read_excel(path, sheet_name="Basketball-man")
+    df_wnba = pd.read_excel(path, sheet_name="Basketball-woman")
     nfl_sheets = {
-        "Passing": pd.read_excel("Excel-licencjat.xlsx", sheet_name="NFL - Passing"),
-        "Rushing": pd.read_excel("Excel-licencjat.xlsx", sheet_name="NFL - Rushing"),
-        "Receiving": pd.read_excel("Excel-licencjat.xlsx", sheet_name="NFL - Receiving"),
-        "Defense": pd.read_excel("Excel-licencjat.xlsx", sheet_name="NFL - Defense"),
-        "Scoring": pd.read_excel("Excel-licencjat.xlsx", sheet_name="NFL - Scoring"),
+        "Passing": pd.read_excel(path, sheet_name="NFL - Passing"),
+        "Rushing": pd.read_excel(path, sheet_name="NFL - Rushing"),
+        "Receiving": pd.read_excel(path, sheet_name="NFL - Receiving"),
+        "Defense": pd.read_excel(path, sheet_name="NFL - Defense"),
+        "Scoring": pd.read_excel(path, sheet_name="NFL - Scoring"),
     }
-    df_soccer_man = pd.read_excel("Excel-licencjat.xlsx", sheet_name="Soccer-Man")
-    df_soccer_woman = pd.read_excel("Excel-licencjat.xlsx", sheet_name="Soccer-Woman")
+    df_soccer_man = pd.read_excel(path, sheet_name="Soccer-Man")
+    df_soccer_woman = pd.read_excel(path, sheet_name="Soccer-Woman")
     return df_nba, df_wnba, nfl_sheets, df_soccer_man, df_soccer_woman
+
 
 df_nba, df_wnba, nfl_sheets, df_soccer_man, df_soccer_woman = load_data()
 
-def get_gs_percent(row):
-    try:
-        gs = float(row['GS'])
-        gp = float(row['games played'])
-        if gp == 0:
-            return np.nan
-        return 100 * gs / gp
-    except:
-        return np.nan
 
-# --------- WYBÓR LIGI ---------
-liga = st.radio("Wybierz ligę do szczegółowej analizy:", ["NBA", "WNBA", "NFL", "Soccer-Man", "Soccer-Woman"])
-if liga == "NBA":
-    df = df_nba
-    fields = fields_nba
-elif liga == "WNBA":
-    df = df_wnba
-    fields = fields_nba  # możesz zrobić osobno fields_wnba, jeśli inne
-elif liga == "NFL":
-    nfl_sheet = st.selectbox(
-        "Wybierz rodzaj statystyk NFL:", 
-        list(nfl_sheets.keys()), 
-        index=0
+def players_in(frame):
+    return (
+        frame[frame["Name - Season"].str.contains("summary before")]["Name - Season"]
+        .str.replace(" summary before", "")
+        .tolist()
     )
+
+
+def before_after(frame, player):
+    before = frame[frame["Name - Season"] == f"{player} summary before"].iloc[0]
+    after = frame[frame["Name - Season"] == f"{player} summary after"].iloc[0]
+    return before, after
+
+
+# --------- HEADER ---------
+st.title(t("app_title"))
+st.caption(t("app_intro"))
+
+# --------- LEAGUE SELECTION ---------
+# Only show leagues whose Excel sheet contains data
+league_frames = {"NBA": df_nba, "WNBA": df_wnba, "Soccer-Man": df_soccer_man, "Soccer-Woman": df_soccer_woman}
+available_leagues = [
+    lg for lg in ["NBA", "WNBA", "NFL", "Soccer-Man", "Soccer-Woman"]
+    if lg == "NFL" or not league_frames[lg].empty
+]
+league = st.radio(
+    t("choose_league"),
+    available_leagues,
+    format_func=lambda key: T["leagues"][key],
+    horizontal=True,
+    key=k("league"),
+)
+if league == "NBA":
+    df = df_nba
+    fields = localize(fields_nba)
+elif league == "WNBA":
+    df = df_wnba
+    fields = localize(fields_nba)
+elif league == "NFL":
+    nfl_sheet = st.selectbox(t("choose_nfl"), list(nfl_sheets.keys()), index=0, key=k("nfl_sheet"))
     df = nfl_sheets[nfl_sheet]
-    if nfl_sheet == "Passing":
-        fields = fields_nfl_passing
-    elif nfl_sheet == "Rushing":
-        fields = fields_nfl_rushing
-    elif nfl_sheet == "Receiving":
-        fields = fields_nfl_receiving
-    elif nfl_sheet == "Defense":
-        fields = fields_nfl_defense
-    elif nfl_sheet == "Scoring":
-        fields = fields_nfl_scoring
-elif liga == "Soccer-Man":
+    fields = localize(
+        {
+            "Passing": fields_nfl_passing,
+            "Rushing": fields_nfl_rushing,
+            "Receiving": fields_nfl_receiving,
+            "Defense": fields_nfl_defense,
+            "Scoring": fields_nfl_scoring,
+        }[nfl_sheet]
+    )
+elif league == "Soccer-Man":
     df = df_soccer_man
-    fields = fields_soccer
-elif liga == "Soccer-Woman":
+    fields = localize(fields_soccer)
+else:
     df = df_soccer_woman
-    fields = fields_soccer    
-# --------- FUNKCJA: ZMIANY STATYSTYK ---------
-def build_stat_change(df):
-    players_all = df[df["Name - Season"].str.contains("summary before")]["Name - Season"].str.replace(" summary before", "").tolist()
+    fields = localize(fields_soccer)
+
+
+# --------- STATISTIC CHANGES ---------
+def build_stat_change(frame, frame_fields):
     rows = []
-    for player in players_all:
-        before = df[df["Name - Season"] == f"{player} summary before"].iloc[0]
-        after = df[df["Name - Season"] == f"{player} summary after"].iloc[0]
-        row = {}
-        for code, desc in fields:
-            b = get_stat_value(before, code)
-            a = get_stat_value(after, code)
-            if desc == "Udział meczów w pierwszej piątce (%)":
-                if not pd.isnull(a) and not pd.isnull(b):
-                    zmiana = a - b
-                else:
-                    zmiana = np.nan
-            else:
-                if b and not pd.isnull(b):
-                    zmiana = ((a-b)/b)*100
-                else:
-                    zmiana = np.nan
-            row[desc] = zmiana
-        rows.append(row)
+    for player in players_in(frame):
+        before, after = before_after(frame, player)
+        rows.append(
+            {
+                desc: change(code, get_stat_value(before, code), get_stat_value(after, code))
+                for code, desc in frame_fields
+            }
+        )
     return pd.DataFrame(rows)
-# ---------------------- SZCZEGÓŁOWA ANALIZA -------------------------
 
+
+def multiselect_with_all(label, options, default, key, all_label):
+    """Multiselect with a 'select all' checkbox."""
+    chosen = st.multiselect(label, options, default=default, key=k(key))
+    if st.checkbox(all_label, key=k(f"{key}_all")):
+        chosen = options
+    return chosen
+
+
+# ---------------------- DETAILED ANALYSIS -------------------------
 st.divider()
-st.title(f"Analiza wybranej ligi: {liga}")
+st.header(t("league_title", league=T["leagues"][league]))
 
-tab1, tab2 = st.tabs(["🔢 Porównanie zawodników", "📊 Analiza wielowymiarowa"])
+tab1, tab2 = st.tabs([t("tab_compare"), t("tab_multi")])
+players_all = players_in(df)
+stats_avail = [desc for code, desc in fields]
+code_of = {desc: code for code, desc in fields}
 
 with tab1:
-    st.header("Porównanie wybranych zawodników przed i po kontuzji")
-    players_all = df[df["Name - Season"].str.contains("summary before")]["Name - Season"].str.replace(" summary before", "").tolist()
-    players_select = st.multiselect(
-        "Wybierz zawodników do porównania (domyślnie 2):", players_all, default=players_all[:2]
+    st.subheader(t("compare_header"))
+    players_select = multiselect_with_all(
+        t("choose_players"), players_all, players_all[:2], "compare_players", t("all_players")
     )
-    if st.checkbox("Zaznacz wszystkich zawodników"):
-        players_select = players_all
+    stat_choices = multiselect_with_all(
+        t("choose_stats"), stats_avail, stats_avail[:3], "compare_stats", t("all_stats")
+    )
 
-    stat_desc_all = [desc for code, desc in fields]
-
-    default_stats = stat_desc_all[:3] if len(stat_desc_all) >= 3 else stat_desc_all
-
-    stat_choices = st.multiselect(
-    "Wybierz statystyki do porównania:",
-    stat_desc_all,
-    default=default_stats,
-    key="multi_stats"
-)
-    select_all_stats = st.checkbox("Zaznacz wszystkie statystyki")
-
-    if select_all_stats and set(stat_choices) != set(stat_desc_all):
-        stat_choices = stat_desc_all
-    elif not select_all_stats and set(stat_choices) == set(stat_desc_all):
-        stat_choices = ["Punkty", "Asysty", "Zbiórki"]
-
-    # Tabela porównawcza
+    # Comparison table
     rows = []
     for player in players_select:
-        before = df[df["Name - Season"] == f"{player} summary before"].iloc[0]
-        after = df[df["Name - Season"] == f"{player} summary after"].iloc[0]
-        row = {"Zawodnik": player}
-        for code, desc in fields:
-            if desc in stat_choices:
-                b = get_stat_value(before, code)
-                a = get_stat_value(after, code)
-                row[f"{desc} przed"] = b
-                row[f"{desc} po"] = a
-                if desc == "Udział meczów w pierwszej piątce (%)":
-                    if not pd.isnull(a) and not pd.isnull(b):
-                        zmiana = round(a - b, 2)
-                    else:
-                        zmiana = "-"
-                else:
-                    zmiana = round(((a - b) / b) * 100, 2) if b and not pd.isnull(b) else "-"
-                row[f"{desc} % zmiana"] = zmiana
+        before, after = before_after(df, player)
+        row = {t("player"): player}
+        for desc in stat_choices:
+            code = code_of[desc]
+            b = get_stat_value(before, code)
+            a = get_stat_value(after, code)
+            row[f"{desc} {t('before')}"] = b
+            row[f"{desc} {t('after')}"] = a
+            delta = change(code, b, a)
+            row[f"{desc} {t('pct_change')}"] = np.nan if pd.isnull(delta) else round(delta, 2)
         rows.append(row)
-    table = pd.DataFrame(rows)
-    st.dataframe(table, use_container_width=True)
+    st.dataframe(pd.DataFrame(rows), width="stretch")
 
-    # Interaktywny wykres
-    plot_labels = [desc for desc in stat_choices]
+    # Interactive chart
     fig = go.Figure()
-    colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#9467bd", "#d62728", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
-
+    colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#9467bd", "#d62728",
+              "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"]
     for i, player in enumerate(players_select):
-        before = df[df["Name - Season"] == f"{player} summary before"].iloc[0]
-        after = df[df["Name - Season"] == f"{player} summary after"].iloc[0]
-        before_vals = []
-        after_vals = []
-        for label in plot_labels:
-            code = [c for c, d in fields if d == label][0]
-            before_val = get_stat_value(before, code)
-            after_val = get_stat_value(after, code)
-            before_vals.append(before_val)
-            after_vals.append(after_val)
+        before, after = before_after(df, player)
+        before_vals = [get_stat_value(before, code_of[label]) for label in stat_choices]
+        after_vals = [get_stat_value(after, code_of[label]) for label in stat_choices]
         fig.add_trace(go.Bar(
-            name=f"{player} Przed", x=plot_labels, y=before_vals,
-            marker_color=colors[i % len(colors)], opacity=0.7, text=before_vals, textposition="auto"
+            name=f"{player} {t('before_cap')}", x=stat_choices, y=before_vals,
+            marker_color=colors[i % len(colors)], opacity=0.7, text=before_vals, textposition="auto",
         ))
         fig.add_trace(go.Bar(
-            name=f"{player} Po", x=plot_labels, y=after_vals,
-            marker_color=colors[(i+3) % len(colors)], opacity=0.7, text=after_vals, textposition="auto"
+            name=f"{player} {t('after_cap')}", x=stat_choices, y=after_vals,
+            marker_color=colors[(i + 3) % len(colors)], opacity=0.7, text=after_vals, textposition="auto",
         ))
-    fig.update_layout(barmode='group', yaxis_title="Wartość", xaxis_title="Statystyka")
-    st.plotly_chart(fig, use_container_width=True)
+    fig.update_layout(barmode="group", yaxis_title=t("value"), xaxis_title=t("statistic"))
+    st.plotly_chart(fig, width="stretch")
 
 with tab2:
-    st.header("Analiza danych wielowymiarowych – wybrana liga")
+    st.subheader(t("multi_header"))
 
-    stats_avail = [desc for code, desc in fields]
-    # Tworzymy ramkę danych do analiz
+    # Data frame with changes for all players
     player_rows = []
-    players_all = df[df["Name - Season"].str.contains("summary before")]["Name - Season"].str.replace(" summary before", "").tolist()
     for player in players_all:
-        before = df[df["Name - Season"] == f"{player} summary before"].iloc[0]
-        after = df[df["Name - Season"] == f"{player} summary after"].iloc[0]
-        row = {"Zawodnik": player}
+        before, after = before_after(df, player)
+        row = {t("player"): player}
         for code, desc in fields:
-            if desc in stats_avail:
-                b = get_stat_value(before, code)
-                a = get_stat_value(after, code)
-                if code in ["GS_percent", "GS%", "GS_pct"]:
-                    # Różnica udziału w pierwszej piątce (procenty)
-                    zmiana = a - b if not pd.isnull(a) and not pd.isnull(b) else np.nan
-                else:
-                    # Procentowa zmiana dla pozostałych statystyk
-                    zmiana = ((a-b)/b)*100 if b and not pd.isnull(b) else np.nan
-                row[desc] = zmiana
+            row[desc] = change(code, get_stat_value(before, code), get_stat_value(after, code))
         player_rows.append(row)
-    df_zmiany = pd.DataFrame(player_rows).set_index("Zawodnik")
+    df_changes = pd.DataFrame(player_rows).set_index(t("player"))
 
     # SCATTER PLOT
-    st.subheader("Scatter plot (dwuwymiarowy):")
+    st.markdown(f"#### {t('scatter_title')}")
     col1, col2 = st.columns(2)
     with col1:
-        stat_x = st.selectbox("Wybierz statystykę (oś X, scatter):", stats_avail, index=0)
+        stat_x = st.selectbox(t("scatter_x"), stats_avail, index=0, key=k("scatter_x"))
     with col2:
-        stat_y = st.selectbox("Wybierz statystykę (oś Y, scatter):", stats_avail, index=2)
-    scatter_players = st.multiselect(
-        "Wybierz zawodników do scatter plot:", players_all, default=players_all[:6], key="scatter_players"
+        stat_y = st.selectbox(t("scatter_y"), stats_avail, index=min(2, len(stats_avail) - 1), key=k("scatter_y"))
+    scatter_players = multiselect_with_all(
+        t("scatter_players"), players_all, players_all[:6], "scatter_players", t("scatter_all")
     )
-    scatter_all = st.checkbox("Zaznacz wszystkich zawodników do scatter", key="scatter_all")
-    if scatter_all:
-        scatter_players = players_all
     fig2 = go.Figure()
     for player in scatter_players:
-        if player in df_zmiany.index and not (np.isnan(df_zmiany.loc[player, stat_x]) or np.isnan(df_zmiany.loc[player, stat_y])):
+        x_val, y_val = df_changes.loc[player, stat_x], df_changes.loc[player, stat_y]
+        if not (pd.isnull(x_val) or pd.isnull(y_val)):
             fig2.add_trace(go.Scatter(
-                x=[df_zmiany.loc[player, stat_x]], y=[df_zmiany.loc[player, stat_y]],
-                mode='markers+text', text=[player], name=player,
-                marker=dict(size=12),
-                textposition="top center"
+                x=[x_val], y=[y_val], mode="markers+text", text=[player], name=player,
+                marker=dict(size=12), textposition="top center",
             ))
     fig2.update_layout(
-        xaxis_title=f"% zmiana {stat_x}",
-        yaxis_title=f"% zmiana {stat_y}",
-        showlegend=False
+        xaxis_title=f"{t('pct_change')} {stat_x}",
+        yaxis_title=f"{t('pct_change')} {stat_y}",
+        showlegend=False,
     )
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, width="stretch")
 
     # RADAR CHART
-    st.subheader("Radar chart (wielowymiarowy pająk):")
-    with st.container():
-        default_radar_stats = stats_avail[:3] if len(stats_avail) >= 3 else stats_avail
-        radar_stats = st.multiselect(
-            "Statystyki do radar/heatmapy:", 
-            stats_avail, 
-            default=default_radar_stats, 
-            key="radar_stats"
-        )
-        all_stats_radar = st.checkbox("Zaznacz wszystkie statystyki do radar", key="all_stats_radar")
-        if all_stats_radar and set(radar_stats) != set(stats_avail):
-            radar_stats = stats_avail
-        elif not all_stats_radar and set(radar_stats) == set(stats_avail):
-            radar_stats = default_radar_stats
-
-    chosen_for_radar = st.multiselect(
-        "Zawodnicy do radar chart:", players_all, default=players_all[:3], key="radar_players"
+    st.markdown(f"#### {t('radar_title')}")
+    radar_stats = multiselect_with_all(
+        t("radar_stats"), stats_avail, stats_avail[:3], "radar_stats", t("radar_all_stats")
     )
-    radar_all = st.checkbox("Zaznacz wszystkich zawodników do radar", key="radar_all")
-    if radar_all:
-        chosen_for_radar = players_all
-
+    chosen_for_radar = multiselect_with_all(
+        t("radar_players"), players_all, players_all[:3], "radar_players", t("radar_all")
+    )
     fig3 = go.Figure()
     for player in chosen_for_radar:
-        if player in df_zmiany.index:
-            values = [df_zmiany.loc[player, stat] for stat in radar_stats]
-            fig3.add_trace(go.Scatterpolar(
-                r=values,
-                theta=radar_stats,
-                fill='toself',
-                name=player
-            ))
-    fig3.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[-100, 100])),
-        showlegend=True
-    )
-    st.plotly_chart(fig3, use_container_width=True)
+        values = [df_changes.loc[player, stat] for stat in radar_stats]
+        fig3.add_trace(go.Scatterpolar(r=values, theta=radar_stats, fill="toself", name=player))
+    fig3.update_layout(polar=dict(radialaxis=dict(visible=True, range=[-100, 100])), showlegend=True)
+    st.plotly_chart(fig3, width="stretch")
 
-    # HEATMAPA
-    st.subheader("Heatmapa zmian procentowych:")
-    with st.container():
-        default_heatmap_stats = stats_avail[:3] if len(stats_avail) >= 3 else stats_avail
-        heatmap_stats = st.multiselect(
-            "Statystyki do heatmapy:", 
-            stats_avail, 
-            default=default_heatmap_stats, 
-            key="heatmap_stats"  
+    # HEATMAP
+    st.markdown(f"#### {t('heatmap_title')}")
+    heatmap_stats = multiselect_with_all(
+        t("heatmap_stats"), stats_avail, stats_avail[:3], "heatmap_stats", t("heatmap_all_stats")
+    )
+    heatmap_players = multiselect_with_all(
+        t("heatmap_players"), players_all, players_all[:8], "heatmap_players", t("heatmap_all")
+    )
+    if heatmap_stats and heatmap_players:
+        heat_data = df_changes.loc[heatmap_players, heatmap_stats]
+        fig4, ax = plt.subplots(figsize=(len(heatmap_stats) * 1.5 + 2, len(heatmap_players) * 0.4 + 2))
+        sns.heatmap(
+            heat_data.fillna(0), annot=True, fmt=".1f", linewidths=0.5, cmap="coolwarm", center=0,
+            ax=ax, cbar_kws={"label": t("pct_change")},
         )
-        all_stats_heatmap = st.checkbox("Zaznacz wszystkie statystyki do heatmapy", key="all_stats_heatmap")
-        if all_stats_heatmap and set(heatmap_stats) != set(stats_avail):
-            heatmap_stats = stats_avail
-        elif not all_stats_heatmap and set(heatmap_stats) == set(stats_avail):
-            heatmap_stats = default_heatmap_stats
+        ax.set_xlabel(t("statistic"))
+        ax.set_ylabel(t("player"))
+        st.pyplot(fig4)
 
-    heatmap_players = st.multiselect(
-        "Zawodnicy do heatmapy:", players_all, default=players_all[:8], key="heatmap_players"
+    # ====== PCA + KMEANS ======
+    st.markdown(f"#### {t('pca_title')}")
+    pca_players = multiselect_with_all(
+        t("pca_players"), players_all, players_all[:12], "pca_players", t("pca_all")
     )
-    heatmap_all = st.checkbox("Zaznacz wszystkich zawodników do heatmapy", key="heatmap_all")
-    if heatmap_all:
-        heatmap_players = players_all
-
-    heat_data = df_zmiany.loc[heatmap_players, heatmap_stats]
-    heat_data_filled = heat_data.fillna(0)
-    annot = heat_data.round(1).astype(str)
-    annot = annot.mask(heat_data.isna(), '-')
-    fig4, ax = plt.subplots(figsize=(len(heatmap_stats)*1.5, len(heatmap_players)*0.4 + 2))
-    sns.heatmap(
-        heat_data_filled,
-        annot=True, fmt=".1f", linewidths=.5, cmap="coolwarm", center=0, ax=ax,
-        cbar_kws={"label": "% zmiana"}
+    pca_stats = multiselect_with_all(
+        t("pca_stats"), stats_avail, stats_avail[:5], "pca_stats", t("pca_all_stats")
     )
-    plt.xlabel("Statystyka")
-    plt.ylabel("Zawodnik")
-    st.pyplot(fig4)
 
-
-    # ====== PCA + KMeans KLASTRY ======
-    st.subheader("Analiza PCA + Klasteryzacja – profile powrotu do formy")
-    pca_players = st.multiselect(
-        "Wybierz zawodników do PCA:", players_all, default=players_all[:12], key="pca_players"
-    )
-    pca_all = st.checkbox("Zaznacz wszystkich zawodników do PCA", key="pca_all")
-    if pca_all:
-        pca_players = players_all
-
-    with st.container():
-        # PODMIANA DEFAULT na unikalny domyślny zestaw dla Twojej ligi
-        default_pca_stats = stats_avail[:5] if len(stats_avail) >= 5 else stats_avail
-        pca_stats = st.multiselect(
-            "Statystyki do PCA:", stats_avail, default=default_pca_stats, key="pca_stats"
-        )
-        all_stats_pca = st.checkbox("Zaznacz wszystkie statystyki do PCA", key="all_stats_pca")
-        if all_stats_pca and set(pca_stats) != set(stats_avail):
-            pca_stats = stats_avail
-        elif not all_stats_pca and set(pca_stats) == set(stats_avail):
-            pca_stats = default_pca_stats
-
-    pca_data = df_zmiany.loc[pca_players, pca_stats].dropna()
-    if not pca_data.empty:
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(pca_data)
+    pca_data = df_changes.loc[pca_players, pca_stats].dropna()
+    if len(pca_data) >= 2 and len(pca_stats) >= 2:
+        X_scaled = StandardScaler().fit_transform(pca_data)
         pca = PCA(n_components=2)
         X_pca = pca.fit_transform(X_scaled)
         explained = pca.explained_variance_ratio_ * 100
 
-        if len(pca_data) > 1:
-            max_clusters = min(8, len(pca_data))  # max 8 lub mniej, żeby nie przesadzić
-            n_clusters = st.slider("Wybierz liczbę klastrów", 2, max_clusters, value=min(3, max_clusters))
-            kmeans = KMeans(n_clusters=n_clusters, n_init=10, random_state=42)
-            labels = kmeans.fit_predict(X_pca)
+        max_clusters = min(8, len(pca_data))
+        if max_clusters > 2:
+            n_clusters = st.slider(t("n_clusters"), 2, max_clusters, value=min(3, max_clusters), key=k("n_clusters"))
         else:
-            n_clusters = 1
-            labels = [0]*len(pca_data)
+            n_clusters = 2
+        labels = KMeans(n_clusters=n_clusters, n_init=10, random_state=42).fit_predict(X_pca)
 
         fig_pca = go.Figure()
         for i, player in enumerate(pca_data.index):
             fig_pca.add_trace(go.Scatter(
-                x=[X_pca[i,0]], y=[X_pca[i,1]],
-                mode='markers+text',
-                marker=dict(size=14, color=labels[i], colorscale='Viridis', line=dict(width=2, color='black')),
+                x=[X_pca[i, 0]], y=[X_pca[i, 1]], mode="markers+text",
+                marker=dict(size=14, color=labels[i], colorscale="Viridis",
+                            cmin=0, cmax=n_clusters - 1, line=dict(width=2, color="black")),
                 text=[player], textposition="top center",
-                name=f"{player} (klaster {labels[i]+1})"
+                name=f"{player} ({t('cluster')} {labels[i] + 1})",
             ))
         fig_pca.update_layout(
-            xaxis_title=f"Główna Składowa 1 ({explained[0]:.1f}% wariancji)",
-            yaxis_title=f"Główna Składowa 2 ({explained[1]:.1f}% wariancji)",
-            title="PCA + KMeans: Grupy zawodników wg profilu zmian",
-            showlegend=False
+            xaxis_title=t("pc", n=1, var=explained[0]),
+            yaxis_title=t("pc", n=2, var=explained[1]),
+            title=t("pca_plot_title"),
+            showlegend=False,
         )
-        st.plotly_chart(fig_pca, use_container_width=True)
+        st.plotly_chart(fig_pca, width="stretch")
 
-        # Podsumowanie klastrów
+        # Cluster summary
         pca_data_clean = pca_data.copy()
-        pca_data_clean['klaster'] = labels
-        summary = pca_data_clean.groupby('klaster')[pca_stats].mean().round(1)
-        summary.index = [f"Klaster {i+1}" for i in summary.index]
-        st.markdown("**Średnie zmiany statystyk w każdym klastrze:**")
+        pca_data_clean["cluster"] = labels
+        summary = pca_data_clean.groupby("cluster")[pca_stats].mean().round(1)
+        summary.index = [f"{t('cluster')} {i + 1}" for i in summary.index]
+        st.markdown(t("cluster_means"))
         st.dataframe(summary)
 
-        st.markdown("**Zawodnicy w każdym klastrze:**")
-        for k in range(n_clusters):
-            players_in_cluster = pca_data_clean.index[pca_data_clean['klaster']==k].tolist()
-            st.write(f"**Klaster {k+1}:** {', '.join(players_in_cluster)}")
+        st.markdown(t("cluster_players"))
+        for cluster_id in range(n_clusters):
+            members = pca_data_clean.index[pca_data_clean["cluster"] == cluster_id].tolist()
+            st.write(f"**{t('cluster')} {cluster_id + 1}:** {', '.join(members)}")
 
         cluster_sums = summary.sum(axis=1)
         sorted_clusters = cluster_sums.sort_values()
-        st.markdown("**Automatyczna interpretacja klastrów:**")
-        for idx, clust in enumerate(summary.index):
-            suma = cluster_sums[clust]
+        st.markdown(t("cluster_interp"))
+        for clust in summary.index:
             position = sorted_clusters.index.get_loc(clust)
             if position == 0:
-                desc = "Największy spadek (najgorszy powrót do formy)"
-            elif position == len(sorted_clusters)-1:
-                desc = "Najmniejszy spadek / największy wzrost (najlepszy powrót do formy)"
+                desc = t("cluster_worst")
+            elif position == len(sorted_clusters) - 1:
+                desc = t("cluster_best")
             else:
-                desc = "Średni powrót do formy"
-            st.write(f"- {clust}: {desc} (suma średnich zmian: {suma:.1f})")
+                desc = t("cluster_mid")
+            st.write(f"- {clust}: {desc} ({t('cluster_sum')}: {cluster_sums[clust]:.1f})")
+    else:
+        st.info(t("pca_too_few"))
 
-    # ====== JAKOŚCIOWA ANALIZA ======
-    st.subheader("Jakościowa analiza: które statystyki najbardziej cierpią po kontuzji ACL?")
-
-    mean_changes = df_zmiany.mean(axis=0).sort_values()
-    st.write("**Średnia procentowa zmiana każdej statystyki (wszyscy zawodnicy):**")
-    st.dataframe(mean_changes.round(2).to_frame(name="Średnia zmiana (%)"))
+    # ====== WHICH STATISTICS SUFFER MOST ======
+    st.markdown(f"#### {t('quality_title')}")
+    mean_changes = df_changes.mean(axis=0).dropna().sort_values()
+    st.write(t("mean_change_all"))
+    st.dataframe(mean_changes.round(2).to_frame(name=t("mean_change_col")))
 
     most_decreased = mean_changes.idxmin()
     most_increased = mean_changes.idxmax()
+    st.markdown(
+        f"- **{t('most_decreased')}** **{most_decreased}** "
+        f"({t('mean_change_short')}: {mean_changes[most_decreased]:.1f}%)\n"
+        f"- **{t('most_increased')}** **{most_increased}** "
+        f"({t('mean_change_short')}: {mean_changes[most_increased]:.1f}%)"
+    )
 
-    st.markdown(f"""
-    - **Statystyka, która najbardziej ucierpiała:**  
-      **{most_decreased}** (średnia zmiana: {mean_changes[most_decreased]:.1f}%)
-    - **Statystyka, która najmniej ucierpiała lub nawet wzrosła:**  
-      **{most_increased}** (średnia zmiana: {mean_changes[most_increased]:.1f}%)
-    """)
+    st.write(t("ranking"))
+    for stat, value in mean_changes.items():
+        trend = t("trend_down") if value < 0 else t("trend_up") if value > 0 else t("trend_none")
+        st.write(f"- {stat}: {value:.1f}% ({trend})")
 
-    st.write("**Ranking statystyk wg średniego spadku/wzrostu:**")
-    for stat, change in mean_changes.items():
-        if change < 0:
-            trend = "spadek"
-        elif change > 0:
-            trend = "wzrost"
-        else:
-            trend = "brak zmiany"
-        st.write(f"- {stat}: {change:.1f}% ({trend})")
-
-    improved_count = (df_zmiany > 0).sum()
+    improved_count = (df_changes > 0).sum()
     most_improved_stat = improved_count.idxmax()
-    st.write(f"**Najwięcej zawodników poprawiło się w statystyce:** {most_improved_stat} ({improved_count[most_improved_stat]} zawodników)")
+    st.write(t("most_improved", stat=most_improved_stat, n=improved_count[most_improved_stat]))
 
     fig, ax = plt.subplots()
-    mean_changes.plot(kind='barh', color=['red' if v<0 else 'green' for v in mean_changes], ax=ax)
-    ax.set_xlabel("Średnia zmiana (%)")
-    ax.set_title("Średnia procentowa zmiana statystyk po kontuzji ACL")
+    mean_changes.plot(kind="barh", color=["red" if v < 0 else "green" for v in mean_changes], ax=ax)
+    ax.set_xlabel(t("mean_change_col"))
+    ax.set_title(t("mean_change_plot"))
     st.pyplot(fig)
 
-    # SEKCJA: Porównanie statystyk NBA vs WNBA (pokazuje się tylko po zaznaczeniu checkboxa)
+    # NBA vs WNBA comparison
     st.divider()
-    porownaj = st.checkbox("Porównaj statystyki mężczyzn i kobiet (NBA vs WNBA)", value=False)
-
-    if porownaj:
-        st.header("Porównanie średnich zmian statystyk po ACL – NBA vs WNBA")
-
-        nba_zmiany = build_stat_change(df_nba)
-        wnba_zmiany = build_stat_change(df_wnba)
-
-        nba_mean = nba_zmiany.mean().round(2)
-        wnba_mean = wnba_zmiany.mean().round(2)
-        nba_mean = nba_mean.dropna()
-        wnba_mean = wnba_mean[nba_mean.index]
+    if st.checkbox(t("compare_sexes"), value=False, key=k("compare_sexes")):
+        st.markdown(f"#### {t('sexes_header')}")
+        basketball_fields = localize(fields_nba)
+        nba_mean = build_stat_change(df_nba, basketball_fields).mean().round(2).dropna()
+        wnba_mean = build_stat_change(df_wnba, basketball_fields).mean().round(2)[nba_mean.index]
 
         stat_labels = nba_mean.index.tolist()
-        nba_vals = nba_mean.values
-        wnba_vals = wnba_mean.values
-
         fig, ax = plt.subplots(figsize=(max(10, len(stat_labels) * 0.7), 6))
         width = 0.35
         x = np.arange(len(stat_labels))
-        ax.bar(x - width/2, nba_vals, width, label='NBA')
-        ax.bar(x + width/2, wnba_vals, width, label='WNBA')
+        ax.bar(x - width / 2, nba_mean.values, width, label="NBA")
+        ax.bar(x + width / 2, wnba_mean.values, width, label="WNBA")
         ax.set_xticks(x)
         ax.set_xticklabels(stat_labels, rotation=45, ha="right")
-        ax.set_ylabel("Średnia % zmiana po ACL")
+        ax.set_ylabel(t("sexes_ylabel"))
         ax.legend()
-        ax.set_title("Średnia zmiana statystyk po ACL – NBA vs WNBA")
+        ax.set_title(t("sexes_title"))
         st.pyplot(fig)
 
-        st.markdown("**Tabela: średnia procentowa zmiana statystyk po ACL:**")
-        st.dataframe(pd.DataFrame({"NBA": nba_vals, "WNBA": wnba_vals}, index=stat_labels).round(2))
-
+        st.markdown(t("sexes_table"))
+        st.dataframe(pd.DataFrame({"NBA": nba_mean.values, "WNBA": wnba_mean.values}, index=stat_labels).round(2))
