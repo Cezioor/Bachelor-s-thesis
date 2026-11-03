@@ -20,11 +20,11 @@ Projekt powstał w ramach mojej pracy licencjackiej z bioinformatyki na Uniwersy
 
 - Statystyki każdego zawodnika są podsumowane dla sezonów przed i po kontuzji; aplikacja liczy zmianę procentową każdej statystyki (dla udziału meczów w pierwszej piątce – zmianę w punktach procentowych)
 - Analiza wielowymiarowa: `StandardScaler` → `PCA(n_components=2)` → `KMeans`, z wyjaśnioną wariancją na osiach
-- Część teoretyczna i pełna dyskusja wyników: [`Praca_Licencjacka_teoria.pdf`](Praca_Licencjacka_teoria.pdf)
+- Część teoretyczna i pełna dyskusja wyników: [`Bachelor_thesis_theory_PL.pdf`](Bachelor_thesis_theory_PL.pdf)
 
 ## Dane
 
-Wszystkie dane są w pliku [`Excel-licencjat.xlsx`](Excel-licencjat.xlsx), jeden arkusz na ligę (oraz po jednym na każdą kategorię statystyk NFL: passing, rushing, receiving, defense, scoring).
+Wszystkie dane są w pliku [`ACL_injury_data.xlsx`](ACL_injury_data.xlsx), jeden arkusz na ligę (oraz po jednym na każdą kategorię statystyk NFL: passing, rushing, receiving, defense, scoring).
 
 ## Uruchomienie lokalne
 

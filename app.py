@@ -415,7 +415,7 @@ def change(code, before_val, after_val):
 # --------- LOADING DATA ---------
 @st.cache_data
 def load_data():
-    path = "Excel-licencjat.xlsx"
+    path = "ACL_injury_data.xlsx"
     df_nba = pd.read_excel(path, sheet_name="Basketball-man")
     df_wnba = pd.read_excel(path, sheet_name="Basketball-woman")
     nfl_sheets = {

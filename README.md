@@ -20,11 +20,11 @@ Built as my bachelor's thesis project in Bioinformatics at the University of Gda
 
 - Each player's statistics are summarised for the seasons before and after the injury; the app computes the percentage change for every statistic (percentage-point change for the share of games started)
 - Multivariate analysis: `StandardScaler` → `PCA(n_components=2)` → `KMeans`, with the explained variance shown on the axes
-- The theory and full discussion are in [`Praca_Licencjacka_teoria.pdf`](Praca_Licencjacka_teoria.pdf) (in Polish)
+- The theory and full discussion are in [`Bachelor_thesis_theory_PL.pdf`](Bachelor_thesis_theory_PL.pdf) (in Polish)
 
 ## Data
 
-All data is in [`Excel-licencjat.xlsx`](Excel-licencjat.xlsx), one sheet per league (and one per NFL statistics category: passing, rushing, receiving, defense, scoring).
+All data is in [`ACL_injury_data.xlsx`](ACL_injury_data.xlsx), one sheet per league (and one per NFL statistics category: passing, rushing, receiving, defense, scoring).
 
 ## Run locally
 
